@@ -47,7 +47,7 @@ class AliCloud
     {
         $phone = strval(intval($phone));
         if (!preg_match('/^1[3456789]\d{9}$/', $phone)) {
-            return ret_array(0, '手机号不正确，请重新输入！');
+            return ret_array(-1, '手机号不正确，请重新输入！');
         }
 
         $time = Cache::get('smsCaptchaSendTimePhone_' . $phone);
