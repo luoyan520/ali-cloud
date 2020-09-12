@@ -27,13 +27,13 @@ class AliCloud
     {
         $sms_captcha = Cache::get('smsCaptcha_' . $phone);
         if (!$sms_captcha) {
-            return ret_array(-2, '您的短信验证码已失效，请重新获取！');
+            return ret_array(2, '您的短信验证码已失效，请重新获取！');
         } elseif ($captcha <> $sms_captcha && $sms_captcha) {
-            return ret_array(-1, '您输入的验证码有误！');
+            return ret_array(1, '您输入的验证码有误！');
         } else {
             // 清空验证码缓存，避免原验证码重复使用
             Cache::delete('smsCaptcha_' . $phone);
-            return ret_array(1);
+            return ret_array(0);
         }
     }
 
@@ -47,12 +47,12 @@ class AliCloud
     {
         $phone = strval(intval($phone));
         if (!preg_match('/^1[3456789]\d{9}$/', $phone)) {
-            return ret_array(-1, '手机号不正确，请重新输入！');
+            return ret_array(1, '手机号不正确，请重新输入！');
         }
 
         $time = Cache::get('smsCaptchaSendTimePhone_' . $phone);
         if ($time + 60 > time()) {
-            return ret_array(-2, '您请求的太快啦，请稍后');
+            return ret_array(2, '您请求的太快啦，请稍后');
         } else {
             Cache::set('smsCaptchaSendTimePhone_' . $phone, time(), 60);
         }
@@ -61,7 +61,7 @@ class AliCloud
         // 限制单手机号一天仅能请求5次
         $times = Cache::get('smsCaptchaTimesPhone_' . $phone);
         if ($times) {
-            if ($times > 5) return ret_array(-2, '您今天已经发送了太多次短信啦');
+            if ($times > 5) return ret_array(2, '您今天已经发送了太多次短信啦');
             Cache::set('smsCaptchaTimesPhone_' . $phone, $times + 1, 86400);
         } else {
             Cache::set('smsCaptchaTimesPhone_' . $phone, 1, 86400);
@@ -72,7 +72,7 @@ class AliCloud
         $ip = Request::ip();
         $times = Cache::get('smsCaptchaTimesIp_' . $ip);
         if ($times) {
-            if ($times > 10) return ret_array(-2, '您今天已经发送了太多次短信啦');
+            if ($times > 10) return ret_array(2, '您今天已经发送了太多次短信啦');
             Cache::set('smsCaptchaTimesIp_' . $ip, $times + 1, 86400);
         } else {
             Cache::set('smsCaptchaTimesIp_' . $ip, 1, 86400);
@@ -145,9 +145,9 @@ class AliCloud
             Cache::set('smsCaptcha_' . $phone, $captcha, 1800);
             // 写短信发送日志
             SmsLog::write(request()->user_id ?: 0, $phone, '', $captcha);
-            return ret_array(1, '验证码发送成功', ['captcha' => $captcha]);
+            return ret_array(0, '验证码发送成功', ['captcha' => $captcha]);
         } else {
-            return ret_array(-1, $result['Message']);
+            return ret_array(1, $result['Message']);
         }
     }
 
