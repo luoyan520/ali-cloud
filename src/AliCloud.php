@@ -28,7 +28,7 @@ class AliCloud
         $sms_captcha = Cache::get('smsCaptcha_' . $phone);
         if (!$sms_captcha) {
             return ret_array(2, '您的短信验证码已失效，请重新获取！');
-        } elseif ($captcha <> $sms_captcha && $sms_captcha) {
+        } elseif ($captcha <> $sms_captcha) {
             return ret_array(1, '您输入的验证码有误！');
         } else {
             // 清空验证码缓存，避免原验证码重复使用
