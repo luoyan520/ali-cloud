@@ -149,7 +149,8 @@ class AliCloud
             // 将验证码缓存起来备用
             Cache::set('smsCaptcha_' . $phone, $captcha, 1800);
             // 写短信发送日志
-            SmsLog::write(request()->userId ?: 0, $phone, '', $captcha);
+			$content = '【' . $data['SignName'] . '】您的验证码是：' . $captcha . '，此验证码30分钟内有效，请勿泄露给他人。若非本人操作，请忽略此短信。';
+            SmsLog::write($phone, $content, $captcha);
             return ret_array(0, '验证码发送成功', ['captcha' => $captcha]);
         } else {
             return ret_array(1, $result['Message']);
