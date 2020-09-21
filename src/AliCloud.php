@@ -23,8 +23,13 @@ class AliCloud
      * @param string $captcha 验证码
      * @return array
      */
-    public static function checkCaptcha(string $phone, string $captcha)
+    public static function checkCaptcha(string $phone = '', string $captcha = '')
     {
+        $phone = strval(intval($phone));
+        if (!preg_match('/^1[3456789]\d{9}$/', $phone)) {
+            return ret_array(1, '手机号不正确，请重新输入！');
+        }
+
         $sms_captcha = Cache::get('smsCaptcha_' . $phone);
         if (!$sms_captcha) {
             return ret_array(2, '您的短信验证码已失效，请重新获取！');
@@ -43,7 +48,7 @@ class AliCloud
      * @param string|null $captcha 验证码
      * @return array
      */
-    public static function sendSmsCaptcha(string $phone, string $captcha = '')
+    public static function sendSmsCaptcha(string $phone = '', string $sign = '洛颜', string $captcha = '')
     {
         $phone = strval(intval($phone));
         if (!preg_match('/^1[3456789]\d{9}$/', $phone)) {
