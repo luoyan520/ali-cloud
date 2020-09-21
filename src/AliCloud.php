@@ -144,7 +144,7 @@ class AliCloud
             // 将验证码缓存起来备用
             Cache::set('smsCaptcha_' . $phone, $captcha, 1800);
             // 写短信发送日志
-            SmsLog::write(request()->user_id ?: 0, $phone, '', $captcha);
+            SmsLog::write(request()->userId ?: 0, $phone, '', $captcha);
             return ret_array(0, '验证码发送成功', ['captcha' => $captcha]);
         } else {
             return ret_array(1, $result['Message']);
