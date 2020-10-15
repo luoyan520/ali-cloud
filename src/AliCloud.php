@@ -10,7 +10,6 @@ declare (strict_types=1);
 namespace LuoYan;
 
 use app\model\SmsLog;
-use LuoYan\Random;
 use think\facade\Cache;
 use think\facade\Config;
 use think\facade\Request;
@@ -20,21 +19,21 @@ class AliCloud
     /**
      * 验证用户输入的短信验证码
      * @param string $phone 手机号
-     * @param string $captcha 验证码
+     * @param string $smsCaptcha 短信验证码
      * @return array
      */
-    public static function checkCaptcha(string $phone = '', string $captcha = '')
+    public static function checkSmsCaptcha(string $phone = '', string $smsCaptcha = '')
     {
         $phone = strval(intval($phone));
         if (!preg_match('/^1[3456789]\d{9}$/', $phone)) {
             return ret_array(1, '手机号不正确，请重新输入！');
         }
 
-        $sms_captcha = Cache::get('smsCaptcha_' . $phone);
-        if (!$sms_captcha) {
+        $cache = Cache::get('smsCaptcha_' . $phone);
+        if (!$cache) {
             return ret_array(2, '您的短信验证码已失效，请重新获取！');
-        } elseif ($captcha <> $sms_captcha) {
-            return ret_array(1, '您输入的验证码有误！');
+        } elseif ($smsCaptcha <> $cache) {
+            return ret_array(3, '您输入的验证码有误！');
         } else {
             // 清空验证码缓存，避免原验证码重复使用
             Cache::delete('smsCaptcha_' . $phone);
@@ -45,60 +44,62 @@ class AliCloud
     /**
      * 发送短信验证码
      * @param string $phone 手机号
-     * @param string|null $captcha 验证码
+     * @param string $signName 签名
+     * @param string $smsCaptcha 短信验证码
      * @return array
      */
-    public static function sendSmsCaptcha(string $phone = '', string $sign = '洛颜', string $captcha = '')
+    public static function sendSmsCaptcha(string $phone = '', string $signName = '洛颜', string $smsCaptcha = '')
     {
+        // 校验手机号格式
         $phone = strval(intval($phone));
         if (!preg_match('/^1[3456789]\d{9}$/', $phone)) {
             return ret_array(1, '手机号不正确，请重新输入！');
         }
 
+        // 校验一分钟内只能发一条规则
         $time = Cache::get('smsCaptchaSendTimePhone_' . $phone);
         if ($time + 60 > time()) {
             return ret_array(2, '您请求的太快啦，请稍后');
-        } else {
-            Cache::set('smsCaptchaSendTimePhone_' . $phone, time(), 60);
         }
+        Cache::set('smsCaptchaSendTimePhone_' . $phone, time(), 60);
         unset($time);
 
         // 限制单手机号一天仅能请求5次
         $times = Cache::get('smsCaptchaTimesPhone_' . $phone);
-        if ($times) {
+        if (!$times) {
+            Cache::set('smsCaptchaTimesPhone_' . $phone, 1, 86400);
+        } else {
             if ($times > 5) return ret_array(2, '您今天已经发送了太多次短信啦');
             Cache::set('smsCaptchaTimesPhone_' . $phone, $times + 1, 86400);
-        } else {
-            Cache::set('smsCaptchaTimesPhone_' . $phone, 1, 86400);
         }
         unset($times);
 
         // 限制单IP地址一天仅能请求10次
         $ip = Request::ip();
         $times = Cache::get('smsCaptchaTimesIp_' . $ip);
-        if ($times) {
+        if (!$times) {
+            Cache::set('smsCaptchaTimesIp_' . $ip, 1, 86400);
+        } else {
             if ($times > 10) return ret_array(2, '您今天已经发送了太多次短信啦');
             Cache::set('smsCaptchaTimesIp_' . $ip, $times + 1, 86400);
-        } else {
-            Cache::set('smsCaptchaTimesIp_' . $ip, 1, 86400);
         }
         unset($times);
 
-        if (!$captcha) {
+        if (!$smsCaptcha) {
             $str = '0123456789';
             $str_len = strlen($str);
-            $captcha = '';
+            $smsCaptcha = '';
             for ($i = 0; $i < 6; $i++) {
-                $captcha .= $str[mt_rand(0, $str_len - 1)];
+                $smsCaptcha .= $str[mt_rand(0, $str_len - 1)];
             }
         }
 
         $data = [
             'Action' => 'SendSms',
             'PhoneNumbers' => $phone,
-            'SignName' => Config::get('ali_cloud.captcha_sign_name'),
+            'SignName' => $signName ?: Config::get('ali_cloud.captcha_sign_name'),
             'TemplateCode' => Config::get('ali_cloud.captcha_template_code'),
-            'TemplateParam' => json_encode(['code' => $captcha]),
+            'TemplateParam' => json_encode(['code' => $smsCaptcha]),
             'Format' => 'JSON',
             'RegionId' => 'cn-hangzhou',
             'Version' => '2017-05-25',
@@ -147,11 +148,11 @@ class AliCloud
 
         if ($result['Code'] == 'OK') {
             // 将验证码缓存起来备用
-            Cache::set('smsCaptcha_' . $phone, $captcha, 1800);
+            Cache::set('smsCaptcha_' . $phone, $smsCaptcha, 1800);
             // 写短信发送日志
-			$content = '【' . $data['SignName'] . '】您的验证码是：' . $captcha . '，此验证码30分钟内有效，请勿泄露给他人。若非本人操作，请忽略此短信。';
-            SmsLog::write($phone, $content, $captcha);
-            return ret_array(0, '验证码发送成功', ['captcha' => $captcha]);
+            $content = '【' . $data['SignName'] . '】您的验证码是：' . $smsCaptcha . '，此验证码30分钟内有效，请勿泄露给他人。若非本人操作，请忽略此短信。';
+            SmsLog::write($phone, $content, $smsCaptcha);
+            return ret_array(0, '验证码发送成功', ['captcha' => $smsCaptcha]);
         } else {
             return ret_array(1, $result['Message']);
         }
